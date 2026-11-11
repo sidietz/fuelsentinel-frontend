@@ -231,28 +231,27 @@ export function FuelChart({
 
           {/* Resolution Selector */}
           <div className="inline-flex rounded-lg bg-slate-800/80 p-1 border border-slate-700/60 text-xs">
-            <button
-              type="button"
-              onClick={() => onResolutionChange("day")}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${
-                activeResolution === "day"
-                  ? "bg-amber-500 text-black font-semibold shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Täglich
-            </button>
-            <button
-              type="button"
-              onClick={() => onResolutionChange("week")}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${
-                activeResolution === "week"
-                  ? "bg-amber-500 text-black font-semibold shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Wöchentlich
-            </button>
+            {(
+              [
+                { id: "year", label: "Jährlich" },
+                { id: "month", label: "Monatlich" },
+                { id: "week", label: "Wöchentlich" },
+                { id: "day", label: "Täglich" },
+              ] as const
+            ).map((res) => (
+              <button
+                key={res.id}
+                type="button"
+                onClick={() => onResolutionChange(res.id)}
+                className={`px-3 py-1 rounded-md font-medium transition-all ${
+                  activeResolution === res.id
+                    ? "bg-amber-500 text-black font-semibold shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {res.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -363,8 +362,13 @@ export function FuelChart({
 
             {/* X-Axis Labels */}
             {points.map((pt, i) => {
-              // Show label every N steps depending on points count to avoid overlap
-              const step = Math.ceil(points.length / 8);
+              // Show all labels for year (<= 6 points), every 2 for month (12 points), or adaptive step for day/week
+              const step =
+                activeResolution === "year"
+                  ? 1
+                  : activeResolution === "month"
+                  ? 2
+                  : Math.ceil(points.length / 8);
               if (i % step !== 0 && i !== points.length - 1) return null;
               const x = getX(i);
               return (
@@ -491,7 +495,13 @@ export function FuelChart({
             <div className="w-56 rounded-xl bg-slate-900/95 border border-slate-700/80 p-3 shadow-2xl backdrop-blur-md">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
                 <span className="font-semibold text-xs text-white">
-                  {hoveredPoint.label.includes("-") ? `Datum: ${hoveredPoint.displayLabel}` : hoveredPoint.displayLabel}
+                  {activeResolution === "year"
+                    ? `Jahr: ${hoveredPoint.displayLabel}`
+                    : activeResolution === "month"
+                    ? `Monat: ${hoveredPoint.displayLabel}`
+                    : activeResolution === "week"
+                    ? `${hoveredPoint.displayLabel}`
+                    : `Datum: ${hoveredPoint.displayLabel}`}
                 </span>
                 {hoverAverage !== null && (
                   <span className="text-[11px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">

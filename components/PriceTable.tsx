@@ -52,35 +52,41 @@ export function PriceTable({
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Historische Preisübersicht für {resolution === "day" ? "Tagesdurchschnitte" : "Kalenderwochen (KW)"}
+            Historische Preisübersicht für{" "}
+            {resolution === "year"
+              ? "Jahresdurchschnitte"
+              : resolution === "month"
+              ? "Monatsdurchschnitte (letzte 12 Monate)"
+              : resolution === "week"
+              ? "Kalenderwochen (KW)"
+              : "Tagesdurchschnitte"}
           </p>
         </div>
 
         {/* Timeframe Tabs */}
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-lg bg-slate-800/80 p-1 border border-slate-700/60 text-xs">
-            <button
-              type="button"
-              onClick={() => onResolutionChange("day")}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${
-                resolution === "day"
-                  ? "bg-slate-700 text-white font-semibold shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Täglich
-            </button>
-            <button
-              type="button"
-              onClick={() => onResolutionChange("week")}
-              className={`px-3 py-1 rounded-md font-medium transition-all ${
-                resolution === "week"
-                  ? "bg-slate-700 text-white font-semibold shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Wöchentlich
-            </button>
+            {(
+              [
+                { id: "year", label: "Jährlich" },
+                { id: "month", label: "Monatlich" },
+                { id: "week", label: "Wöchentlich" },
+                { id: "day", label: "Täglich" },
+              ] as const
+            ).map((res) => (
+              <button
+                key={res.id}
+                type="button"
+                onClick={() => onResolutionChange(res.id)}
+                className={`px-3 py-1 rounded-md font-medium transition-all ${
+                  resolution === res.id
+                    ? "bg-slate-700 text-white font-semibold shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {res.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -126,7 +132,13 @@ export function PriceTable({
           <thead>
             <tr className="border-b border-slate-800 bg-slate-800/50 text-xs font-semibold text-slate-300 uppercase tracking-wider">
               <th scope="col" className="px-4 py-3 font-medium">
-                {resolution === "day" ? "Datum" : "Kalenderwoche (KW)"}
+                {resolution === "year"
+                  ? "Jahr"
+                  : resolution === "month"
+                  ? "Monat"
+                  : resolution === "week"
+                  ? "Kalenderwoche (KW)"
+                  : "Datum"}
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
                 <span className="inline-flex items-center gap-1.5 text-amber-400">

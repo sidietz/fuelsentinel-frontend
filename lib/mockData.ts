@@ -9,6 +9,13 @@ const DATES = [
 
 const WEEKS = [20, 21, 22, 23];
 
+// Rolling last 12 months
+const MONTHS = [
+  "2021-07", "2021-08", "2021-09", "2021-10", "2021-11", "2021-12",
+  "2022-01", "2022-02", "2022-03", "2022-04", "2022-05", "2022-06"
+];
+
+// Multi-year history
 const YEARS = [2020, 2021, 2022, 2023, 2024];
 
 function formatDateDisplay(iso: string): string {
@@ -26,7 +33,7 @@ const REGION_OFFSETS: Record<string, number> = {
   Stuttgart: -0.005,
 };
 
-// Base price curves (showing pre-rebate high around 2.05€ then dropping on June 1st)
+// Base price curves for daily view
 const BASE_PRICES: Record<string, Record<FuelType, number>> = {
   "2022-05-25": { diesel: 2.029, e5: 2.139, e10: 2.079 },
   "2022-05-26": { diesel: 2.035, e5: 2.145, e10: 2.085 },
@@ -35,7 +42,7 @@ const BASE_PRICES: Record<string, Record<FuelType, number>> = {
   "2022-05-29": { diesel: 2.059, e5: 2.172, e10: 2.112 },
   "2022-05-30": { diesel: 2.065, e5: 2.179, e10: 2.119 },
   "2022-05-31": { diesel: 2.069, e5: 2.185, e10: 2.125 },
-  // Tankrabatt starts June 1st (tax cut: ~14c for diesel, ~30c for petrol)
+  // Tankrabatt starts June 1st
   "2022-06-01": { diesel: 1.959, e5: 1.919, e10: 1.859 },
   "2022-06-02": { diesel: 1.942, e5: 1.895, e10: 1.835 },
   "2022-06-03": { diesel: 1.939, e5: 1.889, e10: 1.829 },
@@ -45,6 +52,23 @@ const BASE_PRICES: Record<string, Record<FuelType, number>> = {
   "2022-06-07": { diesel: 1.995, e5: 1.962, e10: 1.902 },
 };
 
+// Monthly base averages (showing climb from ~1.40 in summer 2021 to >2.00 in spring 2022)
+const MONTH_PRICES: Record<string, Record<FuelType, number>> = {
+  "2021-07": { diesel: 1.385, e5: 1.542, e10: 1.482 },
+  "2021-08": { diesel: 1.392, e5: 1.558, e10: 1.498 },
+  "2021-09": { diesel: 1.421, e5: 1.589, e10: 1.529 },
+  "2021-10": { diesel: 1.554, e5: 1.682, e10: 1.622 },
+  "2021-11": { diesel: 1.562, e5: 1.701, e10: 1.641 },
+  "2021-12": { diesel: 1.512, e5: 1.635, e10: 1.575 },
+  "2022-01": { diesel: 1.595, e5: 1.714, e10: 1.654 },
+  "2022-02": { diesel: 1.662, e5: 1.778, e10: 1.718 },
+  "2022-03": { diesel: 2.148, e5: 2.089, e10: 2.029 },
+  "2022-04": { diesel: 2.032, e5: 1.998, e10: 1.938 },
+  "2022-05": { diesel: 2.045, e5: 2.155, e10: 2.095 },
+  "2022-06": { diesel: 1.985, e5: 1.945, e10: 1.885 },
+};
+
+// Multi-year base averages
 const YEAR_PRICES: Record<number, Record<FuelType, number>> = {
   2020: { diesel: 1.111, e5: 1.295, e10: 1.255 },
   2021: { diesel: 1.385, e5: 1.552, e10: 1.492 },
@@ -62,6 +86,25 @@ export function getMockYearPrices(areaId?: number): BackendPricesResponse {
 
     return {
       date: String(year),
+      diesel: (base.diesel + offset).toFixed(5),
+      e5: (base.e5 + offset).toFixed(5),
+      e10: (base.e10 + offset).toFixed(5),
+    };
+  });
+
+  return { prices: prices.reverse() };
+}
+
+export function getMockMonthPrices(areaId?: number): BackendPricesResponse {
+  const prices = MONTHS.map((m) => {
+    const base = MONTH_PRICES[m];
+    const offset = areaId !== undefined && REGIONS[areaId]
+      ? REGION_OFFSETS[REGIONS[areaId].name] || 0
+      : 0;
+
+    const [year, month] = m.split("-");
+    return {
+      date: `${month}/${year}`,
       diesel: (base.diesel + offset).toFixed(5),
       e5: (base.e5 + offset).toFixed(5),
       e10: (base.e10 + offset).toFixed(5),
@@ -124,6 +167,27 @@ export function getMockChartData(timeframe: TimeResolution, fuelType: FuelType):
       const values: (string | number)[] = [region.name];
       for (const yr of YEARS) {
         const val = YEAR_PRICES[yr][fuelType] + offset;
+        values.push(Number(val.toFixed(5)));
+      }
+      columns.push(values);
+    }
+
+    return {
+      data: {
+        x: "x",
+        columns,
+      },
+    };
+  } else if (timeframe === "month") {
+    const columns: (string | number)[][] = [
+      ["x", ...MONTHS]
+    ];
+
+    for (const region of REGIONS) {
+      const offset = REGION_OFFSETS[region.name] || 0;
+      const values: (string | number)[] = [region.name];
+      for (const m of MONTHS) {
+        const val = MONTH_PRICES[m][fuelType] + offset;
         values.push(Number(val.toFixed(5)));
       }
       columns.push(values);

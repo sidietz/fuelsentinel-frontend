@@ -7,7 +7,13 @@ import {
   PriceRow,
   TimeResolution,
 } from "@/types/fuel";
-import { getMockChartData, getMockDayPrices, getMockWeekPrices, getMockYearPrices } from "./mockData";
+import {
+  getMockChartData,
+  getMockDayPrices,
+  getMockMonthPrices,
+  getMockWeekPrices,
+  getMockYearPrices,
+} from "./mockData";
 
 export async function fetchPrices(
   resolution: TimeResolution,
@@ -32,6 +38,8 @@ export async function fetchPrices(
     console.warn(`[fuelsentinel] Backend fetch failed for ${endpoint}, using mock fallback:`, err);
     if (resolution === "year") {
       return getMockYearPrices(isArea ? areaId : undefined).prices;
+    } else if (resolution === "month") {
+      return getMockMonthPrices(isArea ? areaId : undefined).prices;
     } else if (resolution === "day") {
       return getMockDayPrices(isArea ? areaId : undefined).prices;
     } else {
@@ -93,6 +101,10 @@ export function parseChartColumns(res: BackendChartDataResponse): ChartSeries {
     if (rawX.includes("-") && rawX.split("-").length === 3) {
       const parts = rawX.split("-");
       display = `${parts[2]}.${parts[1]}.`;
+    } else if (rawX.includes("-") && rawX.split("-").length === 2) {
+      // ISO month "YYYY-MM" -> "MM/YY"
+      const [year, month] = rawX.split("-");
+      display = `${month}/${year.slice(2)}`;
     } else if (rawX.length === 4 && !isNaN(Number(rawX)) && Number(rawX) >= 1990 && Number(rawX) <= 2100) {
       // 4-digit Year, e.g. "2024"
       display = rawX;

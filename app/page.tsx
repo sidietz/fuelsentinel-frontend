@@ -12,12 +12,12 @@ import { ChartSeries, FuelType, PriceRow, REGIONS, TimeResolution } from "@/type
 export default function Home() {
   // Chart states
   const [activeFuel, setActiveFuel] = useState<FuelType>("diesel");
-  const [chartResolution, setChartResolution] = useState<TimeResolution>("day");
+  const [chartResolution, setChartResolution] = useState<TimeResolution>("year");
   const [chartSeries, setChartSeries] = useState<ChartSeries>({ points: [], regionNames: [] });
   const [isChartLoading, setIsChartLoading] = useState<boolean>(true);
 
   // Table states
-  const [tableResolution, setTableResolution] = useState<TimeResolution>("day");
+  const [tableResolution, setTableResolution] = useState<TimeResolution>("year");
   const [selectedArea, setSelectedArea] = useState<number | null>(null);
   const [tablePrices, setTablePrices] = useState<PriceRow[]>([]);
   const [isTableLoading, setIsTableLoading] = useState<boolean>(true);

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMockChartData, getMockDayPrices, getMockWeekPrices } from "@/lib/mockData";
-import { FuelType } from "@/types/fuel";
+import {
+  getMockChartData,
+  getMockDayPrices,
+  getMockMonthPrices,
+  getMockWeekPrices,
+  getMockYearPrices,
+} from "@/lib/mockData";
+import { FuelType, TimeResolution } from "@/types/fuel";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +16,10 @@ export async function GET(
 ) {
   const { slug } = await params;
   const path = slug.join("/");
-  const backendBase = process.env.BACKEND_URL || "http://127.0.0.1:1024";
+  const backendBase = process.env.BACKEND_URL || "http://127.0.0.1:63943";
   const targetUrl = `${backendBase}/api/${path}`;
 
-  // Try proxying to Flask backend with a short timeout
+  // Try proxying to Flask backend (backend-new.py on port 63943) with a short timeout
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 1200);
@@ -36,7 +42,7 @@ export async function GET(
   // 1. /api/charts/:resolution/:fuelType
   if (path.startsWith("charts/")) {
     const parts = path.split("/");
-    const resolution = (parts[1] === "week" ? "week" : "day") as "day" | "week";
+    const resolution = (parts[1] || "year") as TimeResolution;
     const fuelType = (parts[2] || "diesel") as FuelType;
     return NextResponse.json(getMockChartData(resolution, fuelType));
   }
@@ -45,28 +51,44 @@ export async function GET(
   if (path.startsWith("area/")) {
     const parts = path.split("/");
     const areaId = parseInt(parts[1], 10);
+    const parsedId = isNaN(areaId) ? undefined : areaId;
     const resolution = parts[2];
-    if (resolution === "week") {
-      return NextResponse.json(getMockWeekPrices(isNaN(areaId) ? undefined : areaId));
+    if (resolution === "year") {
+      return NextResponse.json(getMockYearPrices(parsedId));
     }
-    return NextResponse.json(getMockDayPrices(isNaN(areaId) ? undefined : areaId));
+    if (resolution === "month") {
+      return NextResponse.json(getMockMonthPrices(parsedId));
+    }
+    if (resolution === "week") {
+      return NextResponse.json(getMockWeekPrices(parsedId));
+    }
+    return NextResponse.json(getMockDayPrices(parsedId));
   }
 
-  // 3. /api/day
-  if (path === "day") {
-    return NextResponse.json(getMockDayPrices());
+  // 3. /api/year
+  if (path === "year") {
+    return NextResponse.json(getMockYearPrices());
   }
 
-  // 4. /api/week
+  // 4. /api/month
+  if (path === "month") {
+    return NextResponse.json(getMockMonthPrices());
+  }
+
+  // 5. /api/week
   if (path === "week") {
     return NextResponse.json(getMockWeekPrices());
   }
 
-  // 5. /api/time
+  // 6. /api/day
+  if (path === "day") {
+    return NextResponse.json(getMockDayPrices());
+  }
+
+  // 7. /api/time
   if (path === "time") {
     return NextResponse.json({ time: Date.now() / 1000 });
   }
 
   return NextResponse.json({ error: "Endpoint not found" }, { status: 404 });
 }
-
