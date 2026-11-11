@@ -1,6 +1,6 @@
 export type FuelType = "diesel" | "e5" | "e10";
 
-export type TimeResolution = "day" | "week";
+export type TimeResolution = "year" | "day" | "week";
 
 export interface AreaInfo {
   id: number;

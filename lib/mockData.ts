@@ -1,4 +1,4 @@
-import { BackendChartDataResponse, BackendPricesResponse, FuelType, REGIONS } from "@/types/fuel";
+import { BackendChartDataResponse, BackendPricesResponse, FuelType, REGIONS, TimeResolution } from "@/types/fuel";
 
 // Simulated 14-day history around the 2022 German fuel rebate ("Tankrabatt")
 const DATES = [
@@ -8,6 +8,8 @@ const DATES = [
 ];
 
 const WEEKS = [20, 21, 22, 23];
+
+const YEARS = [2020, 2021, 2022, 2023, 2024];
 
 function formatDateDisplay(iso: string): string {
   const [y, m, d] = iso.split("-");
@@ -42,6 +44,32 @@ const BASE_PRICES: Record<string, Record<FuelType, number>> = {
   "2022-06-06": { diesel: 1.982, e5: 1.949, e10: 1.889 },
   "2022-06-07": { diesel: 1.995, e5: 1.962, e10: 1.902 },
 };
+
+const YEAR_PRICES: Record<number, Record<FuelType, number>> = {
+  2020: { diesel: 1.111, e5: 1.295, e10: 1.255 },
+  2021: { diesel: 1.385, e5: 1.552, e10: 1.492 },
+  2022: { diesel: 1.946, e5: 1.916, e10: 1.860 },
+  2023: { diesel: 1.722, e5: 1.831, e10: 1.771 },
+  2024: { diesel: 1.668, e5: 1.794, e10: 1.734 },
+};
+
+export function getMockYearPrices(areaId?: number): BackendPricesResponse {
+  const prices = YEARS.map((year) => {
+    const base = YEAR_PRICES[year];
+    const offset = areaId !== undefined && REGIONS[areaId]
+      ? REGION_OFFSETS[REGIONS[areaId].name] || 0
+      : 0;
+
+    return {
+      date: String(year),
+      diesel: (base.diesel + offset).toFixed(5),
+      e5: (base.e5 + offset).toFixed(5),
+      e10: (base.e10 + offset).toFixed(5),
+    };
+  });
+
+  return { prices: prices.reverse() };
+}
 
 export function getMockDayPrices(areaId?: number): BackendPricesResponse {
   const prices = DATES.map((date) => {
@@ -85,8 +113,29 @@ export function getMockWeekPrices(areaId?: number): BackendPricesResponse {
   return { prices: prices.reverse() };
 }
 
-export function getMockChartData(timeframe: "day" | "week", fuelType: FuelType): BackendChartDataResponse {
-  if (timeframe === "day") {
+export function getMockChartData(timeframe: TimeResolution, fuelType: FuelType): BackendChartDataResponse {
+  if (timeframe === "year") {
+    const columns: (string | number)[][] = [
+      ["x", ...YEARS]
+    ];
+
+    for (const region of REGIONS) {
+      const offset = REGION_OFFSETS[region.name] || 0;
+      const values: (string | number)[] = [region.name];
+      for (const yr of YEARS) {
+        const val = YEAR_PRICES[yr][fuelType] + offset;
+        values.push(Number(val.toFixed(5)));
+      }
+      columns.push(values);
+    }
+
+    return {
+      data: {
+        x: "x",
+        columns,
+      },
+    };
+  } else if (timeframe === "day") {
     const columns: (string | number)[][] = [
       ["x", ...DATES]
     ];
@@ -137,4 +186,3 @@ export function getMockChartData(timeframe: "day" | "week", fuelType: FuelType):
     };
   }
 }
-

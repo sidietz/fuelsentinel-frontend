@@ -1,101 +1,149 @@
-# Fuelsentinel Frontend Plan: Adding "Jährlich" (Yearly) as the Default Tab
+# Fuelsentinel Plan: InfluxDB Backend (`backend-new.py`) with "Monatlich" (Last 12 Months) & "Jährlich" (Default)
 
 ## 1. Executive Summary & Objective
 
-The objective is to expand the time resolutions in **fuelsentinel** by introducing a **"Jährlich" (Yearly)** tab alongside the existing "Täglich" (Daily) and "Wöchentlich" (Weekly) views across both the **Interactive Fuel Chart** and the **Price Table**, and making **"Jährlich" the default view**.
-
-This provides users with an immediate macro-overview of long-term fuel price development in Germany (e.g. 2020–2024), before allowing them to drill down into weekly or daily trends.
-
----
-
-## 2. Updated API Contract & Data Model
-
-The API endpoints will be extended to support `year` as a first-class resolution parameter:
-
-```
-GET /api/year                          -> { prices: [{ date: "2024", diesel: "...", e5: "...", e10: "..." }, ...] }
-GET /api/area/<area_id>/year           -> { prices: [{ date: "2024", diesel: "...", e5: "...", e10: "..." }, ...] }
-GET /api/charts/year/<fuel_type>       -> { data: { x: "x", columns: [["x", "2020", "2021", ...], ["Ansbach", ...], ...] } }
-```
-
-### Backend Implementation Specification (Flask / PostgreSQL):
-In the Python backend (`app.py` / `backend.py`):
-```python
-@app.route('/api/year')
-@cross_origin()
-def get_yearly():
-    sql = "SELECT extract(year from changed_at::date)::int as jahr, avg(diesel) as diesel_avg, avg(e5) as e5_avg, avg(e10) as e10_avg FROM prices GROUP BY jahr ORDER BY jahr DESC;"
-    # ... executes and returns formatted rows ...
-
-@app.route('/api/area/<area_number>/year')
-@cross_origin()
-def get_area_by_year(area_number):
-    sql = "SELECT extract(year from changed_at::date)::int as jahr, avg(diesel) as diesel_avg, avg(e5) as e5_avg, avg(e10) as e10_avg FROM (SELECT * FROM prices, stations WHERE prices.station_id = stations.station_id AND stations.area = %s) as prices_table GROUP BY jahr ORDER BY jahr DESC;"
-    # ... executes and returns formatted rows ...
-
-@app.route('/api/charts/year/<fuel_type>')
-@cross_origin()
-def get_charts_year_fuel_selection(fuel_type):
-    sql = "SELECT extract(year from prices.changed_at::date)::int as jahr, stations.area, avg(diesel) as diesel_avg, avg(e5) as e5_avg, avg(e10) as e10_avg FROM prices, stations WHERE prices.station_id = stations.station_id GROUP BY jahr, stations.area ORDER BY jahr;"
-    # ... formats into columns matrix ...
-```
+This plan encompasses:
+1. Migrating to **`backend-new.py`** powered by **InfluxDB** and Pandas.
+2. Adding a **"Monatlich" (Monthly)** time resolution displaying the **last 12 months** of price history across both charts and tables.
+3. Supporting the complete four-tier resolution suite:
+   - **"Jährlich" (Yearly)** — **Default** macro overview (multi-year comparison 2020–2024).
+   - **"Monatlich" (Monthly)** — Rolling last 12 months overview.
+   - **"Wöchentlich" (Weekly)** — Calendar weeks (KW).
+   - **"Täglich" (Daily)** — Day-by-day granularity.
 
 ---
 
-## 3. Frontend Architecture & Implementation Plan
+## 2. Architecture & Data Flow
 
-### 3.1 Type Definitions (`new/frontend/types/fuel.ts`)
-Update `TimeResolution` to include `'year'`:
+```mermaid
+flowchart TD
+    subgraph Frontend["Next.js 16 Frontend (new/frontend)"]
+        Dashboard["Dashboard (app/page.tsx) [Default: 'year']"]
+        ChartComp["FuelChart.tsx [Jährlich | Monatlich | Wöchentlich | Täglich]"]
+        TableComp["PriceTable.tsx [Dynamic Header: Jahr | Monat | KW | Datum]"]
+        ApiRoute["API Proxy Route (app/api/[...slug]/route.ts)"]
+        MockData["Mock Data Provider (lib/mockData.ts)"]
+    end
+
+    subgraph Backend["Python Flask Backend (new/backend)"]
+        Flask["Flask App (backend-new.py :63943)"]
+        FluxEngine["Pandas Aggregation Engine"]
+        InfluxClient["InfluxDBClient (v2 Flux)"]
+    end
+
+    subgraph Database["Database"]
+        InfluxDB[("InfluxDB :8086 (Bucket: fuelsentinel)")]
+    end
+
+    Dashboard --> ChartComp
+    Dashboard --> TableComp
+    ChartComp -.-> ApiRoute
+    TableComp -.-> ApiRoute
+    ApiRoute -->|Proxy to :63943| Flask
+    ApiRoute -.->|Offline Fallback| MockData
+    Flask --> FluxEngine
+    FluxEngine --> InfluxClient
+    InfluxClient --> InfluxDB
+```
+
+---
+
+## 3. Backend Implementation: `backend-new.py` (InfluxDB)
+
+### 3.1 Environment & Entrypoint
+- In `new/backend/.flaskenv`: Set `FLASK_APP=backend-new.py`.
+- Port alignment: `backend-new.py` serves on port **`63943`**.
+
+### 3.2 InfluxDB Query Range Function
+`get_daily_station_data(range_start="-1y")`:
+- For `"month"`, `"week"`, and `"day"`: uses default `range_start="-1y"` (fetching the rolling 12 months).
+- For `"year"`: uses `range_start="-5y"` to include all multi-year records.
+
+### 3.3 New "Monatlich" (Monthly) Endpoints
+1. **`GET /api/month`**:
+   - Aggregates by `df['_time'].dt.strftime('%Y-%m')`.
+   - Returns `{ 'prices': [{ 'date': 'MM/YYYY', 'diesel': '...', 'e5': '...', 'e10': '...' }, ...] }` for the last 12 months sorted chronologically descending.
+2. **`GET /api/area/<area_number>/month`**:
+   - Filters by `area_number` and aggregates monthly for the last 12 months.
+3. **`GET /api/charts/month/<fuel_type>`** & **`GET /api/charts/month`**:
+   - Formats columnar output for the last 12 months:
+     `{ 'data': { 'x': 'x', 'columns': [['x', '2021-07', '2021-08', ..., '2022-06'], ['Ansbach', ...], ...] } }`
+
+### 3.4 New "Jährlich" (Yearly) Endpoints
+1. **`GET /api/year`**:
+   - Aggregates by `df['_time'].dt.year`.
+   - Returns annual averages sorted descending.
+2. **`GET /api/area/<area_number>/year`**:
+   - Area-specific annual averages.
+3. **`GET /api/charts/year/<fuel_type>`** & **`GET /api/charts/year`**:
+   - Columnar annual series: `[['x', 2020, 2021, 2022, 2023, 2024], ...]`.
+
+---
+
+## 4. Frontend Implementation
+
+### 4.1 Type System (`new/frontend/types/fuel.ts`)
 ```typescript
-export type TimeResolution = "year" | "day" | "week";
+export type TimeResolution = "year" | "month" | "week" | "day";
 ```
 
-### 3.2 Mock & Resilient Proxy Layer (`lib/mockData.ts` & `app/api/[...slug]/route.ts`)
-- Add `getMockYearPrices(areaId?: number)`:
-  - Multi-year German fuel price history reflecting actual annual averages (2020: pandemic lows ~1.11–1.26 €, 2021: recovery ~1.39–1.52 €, 2022: peak energy crisis ~1.95–2.01 €, 2023: normalization ~1.72–1.83 €, 2024: ~1.65–1.76 €).
-- Add `year` branch in `getMockChartData("year", fuelType)`.
-- Update `app/api/[...slug]/route.ts` to handle:
-  - `path === "year"`
-  - `path.startsWith("area/") && resolution === "year"`
-  - `path.startsWith("charts/") && resolution === "year"`
+### 4.2 Mock Data & Next.js API Fallback Proxy
+- In `lib/mockData.ts`:
+  - `getMockMonthPrices(areaId?: number)`: Generates 12 monthly data points representing the last 12 months.
+  - `getMockYearPrices(areaId?: number)`: Multi-year German averages (2020–2024).
+  - Update `getMockChartData(timeframe, fuelType)` to support `"month"` and `"year"`.
+- In `app/api/[...slug]/route.ts`:
+  - Proxy default port set to `63943`.
+  - Handle `path === "month"` and `path.startsWith("charts/month/")`.
+  - Handle `path === "year"` and `path.startsWith("charts/year/")`.
 
-### 3.3 Interactive Chart (`components/FuelChart.tsx`)
-- Tab Order: Place **"Jährlich"** as the first tab in the resolution switcher:
-  `[ Jährlich | Täglich | Wöchentlich ]`
-- Date formatting: Display 4-digit years (e.g. `2022`, `2023`) directly on the X-axis and inside the tooltip card without date truncation.
-- Bézier curve rendering adjusted for annual intervals.
+### 4.3 Data Formatter (`lib/api.ts`)
+- In `parseChartColumns`:
+  - If ISO year-month string (`"YYYY-MM"`): Format as `"MM/YY"` (e.g. `"05/22"`).
+  - If 4-digit year (`"2024"`): Display `"2024"`.
+  - If ISO date (`"YYYY-MM-DD"`): Format as `"DD.MM."`.
+  - If KW number: Format as `"KW <nr>"`.
 
-### 3.4 Price Table (`components/PriceTable.tsx`)
-- Add **"Jährlich"** button to the timeframe selector:
-  `[ Jährlich | Täglich | Wöchentlich ]`
-- Table column header dynamically adapts:
-  - When `resolution === "year"`: Header label displays **"Jahr"**
-  - When `resolution === "day"`: Header label displays **"Datum"**
-  - When `resolution === "week"`: Header label displays **"Kalenderwoche (KW)"**
-- Rows display annual entries cleanly (e.g., `2024`, `2023`, `2022`, `2021`, `2020`).
-
-### 3.5 Page Dashboard Defaults (`app/page.tsx`)
-- Set initial state defaults:
-  ```typescript
-  const [chartResolution, setChartResolution] = useState<TimeResolution>("year");
-  const [tableResolution, setTableResolution] = useState<TimeResolution>("year");
-  ```
-- KPI cards retain baseline daily data (`fetchPrices("day", null)`) for 24h delta tracking, while chart and table render the macro yearly perspective by default.
-
----
-
-## 4. Execution Steps
-
-1. **Update Types**: Modify `TimeResolution` in `types/fuel.ts`.
-2. **Update Mock Data & API Proxy**: Add yearly dataset in `lib/mockData.ts` and handle `/api/year` in `app/api/[...slug]/route.ts`.
-3. **Update UI Components**:
-   - `FuelChart.tsx`: Add "Jährlich" tab, year formatting, adjust active styles.
-   - `PriceTable.tsx`: Add "Jährlich" tab, dynamic "Jahr" table column header.
-4. **Update Page State**: Set default state to `"year"` in `app/page.tsx`.
-5. **Update Documentation**: Synchronize `new/frontend/doc/plan001.md`.
-6. **Verification**: Run `npm run lint` and `npm run build` to verify clean compilation.
+### 4.4 UI Components
+- **`FuelChart.tsx`**:
+  - Update resolution switcher tabs to:
+    `[ Jährlich | Monatlich | Wöchentlich | Täglich ]`
+  - Highlight the active tab (amber pill).
+  - Responsive SVG path and tick formatting for 12 monthly points.
+- **`PriceTable.tsx`**:
+  - Add `"Monatlich"` tab.
+  - Dynamic table header:
+    - `"year"` -> **Jahr**
+    - `"month"` -> **Monat**
+    - `"week"` -> **Kalenderwoche (KW)**
+    - `"day"` -> **Datum**
+- **`app/page.tsx`**:
+  - Default resolution state remains `"year"`:
+    ```typescript
+    const [chartResolution, setChartResolution] = useState<TimeResolution>("year");
+    const [tableResolution, setTableResolution] = useState<TimeResolution>("year");
+    ```
 
 ---
 
-## 5. Review & Feedback Request
-Please review this plan. Upon your approval, we will proceed immediately with the implementation!
+## 5. Execution & Verification Steps
+
+1. **Backend Updates (`new/backend`)**:
+   - Update `.flaskenv` to `FLASK_APP=backend-new.py`.
+   - Update `backend-new.py` with both `year` and `month` endpoints, plus `adjust_to_charts_month` and `adjust_to_charts_year`.
+   - Verify syntax with `python3 -m py_compile new/backend/backend-new.py`.
+2. **Frontend Updates (`new/frontend`)**:
+   - Update `types/fuel.ts` (`TimeResolution`).
+   - Update `lib/mockData.ts` and `lib/api.ts` with 12-month data and formatting.
+   - Update `app/api/[...slug]/route.ts` to proxy to port `63943` and handle `month`/`year`.
+   - Update `FuelChart.tsx` and `PriceTable.tsx` with `"Monatlich"` tab and dynamic headers.
+   - Keep `"year"` as the initial default state in `app/page.tsx`.
+3. **Documentation**:
+   - Synchronize `new/frontend/doc/plan001.md`.
+4. **Verification**:
+   - Run `npm run lint` and `npm run build` in `new/frontend`.
+
+---
+
+## 6. Review & Feedback Request
+Please review this updated plan. Upon your approval, we will proceed with the implementation!

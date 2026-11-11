@@ -7,7 +7,7 @@ import {
   PriceRow,
   TimeResolution,
 } from "@/types/fuel";
-import { getMockChartData, getMockDayPrices, getMockWeekPrices } from "./mockData";
+import { getMockChartData, getMockDayPrices, getMockWeekPrices, getMockYearPrices } from "./mockData";
 
 export async function fetchPrices(
   resolution: TimeResolution,
@@ -30,7 +30,9 @@ export async function fetchPrices(
     throw new Error("Empty prices array");
   } catch (err) {
     console.warn(`[fuelsentinel] Backend fetch failed for ${endpoint}, using mock fallback:`, err);
-    if (resolution === "day") {
+    if (resolution === "year") {
+      return getMockYearPrices(isArea ? areaId : undefined).prices;
+    } else if (resolution === "day") {
       return getMockDayPrices(isArea ? areaId : undefined).prices;
     } else {
       return getMockWeekPrices(isArea ? areaId : undefined).prices;
@@ -91,7 +93,11 @@ export function parseChartColumns(res: BackendChartDataResponse): ChartSeries {
     if (rawX.includes("-") && rawX.split("-").length === 3) {
       const parts = rawX.split("-");
       display = `${parts[2]}.${parts[1]}.`;
+    } else if (rawX.length === 4 && !isNaN(Number(rawX)) && Number(rawX) >= 1990 && Number(rawX) <= 2100) {
+      // 4-digit Year, e.g. "2024"
+      display = rawX;
     } else if (!isNaN(Number(rawX))) {
+      // Calendar Week (KW), e.g. "22"
       display = `KW ${rawX}`;
     }
 
