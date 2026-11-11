@@ -5,7 +5,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.3.3-38bdf8?logo=tailwind-css)](https://tailwindcss.com/)
 [![License: AGPL3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](LICENSE)
 
-Modernisiertes Web-Dashboard für **fuelsentinel** — eine unabhängige Plattform zur kontinuierlichen Beobachtung und vergleichenden Marktanalyse deutscher Kraftstoffpreise (**Diesel**, **Super E5**, **Super E10**) über sechs strukturell unterschiedliche Regionen Deutschlands:
+Modernisiertes Web-Dashboard für **fuelsentinel** — eine unabhängige Plattform zur kontinuierlichen Beobachtung und vergleichenden Marktanalyse deutscher Kraftstoffpreise (**Diesel**, **Super E5**, **Super E10**) über sechs strukturell unterschiedliche Regionen (Sentinels, daher der Name) Deutschlands:
 - **Aachen** (West)
 - **Annaberg-Buchholz** (Erzgebirge)
 - **Ansbach** (Franken)
