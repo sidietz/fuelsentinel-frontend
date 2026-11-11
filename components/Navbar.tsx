@@ -42,7 +42,7 @@ export function Navbar() {
                 fuel<span className="text-amber-400">sentinel</span>
               </span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60 font-mono">
-                v2.0
+                v0.0.1
               </span>
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">
