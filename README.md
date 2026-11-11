@@ -70,13 +70,15 @@ flask run -p 63943
 
 > **Hinweis zur Offline-Entwicklung**: Falls InfluxDB oder Flask lokal nicht aktiv sind, schaltet der Next.js Proxy automatisch auf realistische Referenzdaten um, sodass das Dashboard sofort voll funktionsfähig getestet werden kann.
 
-### 3. Produktions-Build erstellen
+### 3. Produktions-Build erstellen & ausführen
 
 ```bash
 cd new/frontend
 npm run build
 npm run start
 ```
+
+Der Produktionsserver startet standardmäßig auf Port **3002**: **[http://localhost:3002](http://localhost:3002)**.
 
 ---
 

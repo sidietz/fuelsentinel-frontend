@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default landing view to the **"Jährlich"** (Yearly) resolution across both the chart and table.
 - Corrected German spelling throughout the UI ("Wöchentlich" instead of "Wöchtenlich", "Impressum" instead of "Impressium").
 - Aligned backend port from `1024` to `63943`.
+- Configured default production server port to `3002` (`next start -p 3002`).
 
 ### Removed
 - Removed deprecated Create React App build scripts and outdated `react-billboardjs` dependencies.
